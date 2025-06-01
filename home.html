@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Puzzle Angka Game</title>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;700&display=swap" rel="stylesheet" />
+  <style>
+    body {
+      margin: 0;
+      font-family: 'Poppins', sans-serif;
+      background: linear-gradient(145deg, #f0f4f8, #dbeafe);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      min-height: 100vh;
+      padding-top: 30px;
+    }
+
+    h1 {
+      font-size: 2.2em;
+      color: #1e3a8a;
+      margin-bottom: 0.5em;
+    }
+
+    .game-panel {
+      background: white;
+      border-radius: 20px;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+      padding: 25px 30px;
+      max-width: 400px;
+      width: 90%;
+      text-align: center;
+    }
+
+    .controls {
+      margin-bottom: 15px;
+    }
+
+    select, button {
+      padding: 8px 15px;
+      border-radius: 10px;
+      border: none;
+      font-size: 1em;
+      margin: 5px;
+      background-color: #3b82f6;
+      color: white;
+      cursor: pointer;
+      transition: background 0.3s;
+    }
+
+    button:hover {
+      background-color: #2563eb;
+    }
+
+    .stats {
+      margin-bottom: 10px;
+      font-size: 1em;
+      color: #374151;
+    }
+
+    .puzzle-container {
+      display: grid;
+      gap: 8px;
+      margin: 20px auto;
+      justify-content: center;
+      transition: all 0.3s ease;
+    }
+
+    .tile {
+      border-radius: 15px;
+      background-color: #3b82f6;
+      color: white;
+      font-weight: bold;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      box-shadow: 0 4px 8px rgba(59, 130, 246, 0.3);
+      user-select: none;
+    }
+
+    .tile.empty {
+      background-color: #e5e7eb;
+      box-shadow: none;
+      cursor: default;
+    }
+
+    .tile:hover:not(.empty) {
+      transform: scale(1.05);
+      background-color: #2563eb;
+    }
+
+    .message {
+      font-size: 1em;
+      color: green;
+      font-weight: bold;
+      margin-top: 10px;
+    }
+
+    @media screen and (max-width: 480px) {
+      .game-panel {
+        padding: 15px;
+      }
+    }
+  </style>
+</head>
+<body>
+
+<h1>Puzzle Angka</h1>
+<div class="game-panel">
+  <div class="controls">
+    <label for="size">Ukuran:</label>
+    <select id="size">
+      <option value="3">3 x 3</option>
+      <option value="4">4 x 4</option>
+      <option value="5">5 x 5</option>
+    </select>
+    <label for="mode">Mode:</label>
+    <select id="mode" onchange="applyMode()">
+      <option value="desktop">Desktop</option>
+      <option value="mobile">Mobile</option>
+    </select>
+    <button onclick="initPuzzle()">Reset</button>
+  </div>
+
+  <div class="stats">
+    🕒 Waktu: <span id="timer">00:00</span> &nbsp; | &nbsp; 🔢 Langkah: <span id="steps">0</span>
+  </div>
+
+  <div id="puzzle" class="puzzle-container"></div>
+  <div class="message" id="message"></div>
+</div>
+
+<!-- 🔊 Audio Elements -->
+<audio id="clickSound" src="https://freesound.org/data/previews/256/256113_3263906-lq.mp3"></audio>
+<audio id="winSound" src="https://freesound.org/data/previews/320/320655_5260879-lq.mp3"></audio>
+
+<script>
+  let size = 3;
+  let numbers = [];
+  let timerInterval;
+  let seconds = 0;
+  let steps = 0;
+  let tileSize = 80;
+
+  const clickSound = document.getElementById("clickSound");
+  const winSound = document.getElementById("winSound");
+
+  function formatTime(s) {
+    const mins = String(Math.floor(s / 60)).padStart(2, '0');
+    const secs = String(s % 60).padStart(2, '0');
+    return `${mins}:${secs}`;
+  }
+
+  function startTimer() {
+    clearInterval(timerInterval);
+    seconds = 0;
+    document.getElementById("timer").textContent = "00:00";
+    timerInterval = setInterval(() => {
+      seconds++;
+      document.getElementById("timer").textContent = formatTime(seconds);
+    }, 1000);
+  }
+
+  function shuffle(array) {
+    do {
+      for (let i = array.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [array[i], array[j]] = [array[j], array[i]];
+      }
+    } while (!isSolvable(array));
+  }
+
+  function isSolvable(arr) {
+    let invCount = 0;
+    const nums = arr.filter(n => n !== null);
+    for (let i = 0; i < nums.length - 1; i++) {
+      for (let j = i + 1; j < nums.length; j++) {
+        if (nums[i] > nums[j]) invCount++;
+      }
+    }
+    if (size % 2 !== 0) return invCount % 2 === 0;
+    const emptyRow = Math.floor(arr.indexOf(null) / size);
+    return (invCount + emptyRow) % 2 === 1;
+  }
+
+  function isAdjacent(i1, i2) {
+    const x1 = i1 % size, y1 = Math.floor(i1 / size);
+    const x2 = i2 % size, y2 = Math.floor(i2 / size);
+    return (Math.abs(x1 - x2) + Math.abs(y1 - y2)) === 1;
+  }
+
+  function applyMode() {
+    const mode = document.getElementById("mode").value;
+    tileSize = (mode === 'mobile') ? 55 : 80;
+    renderPuzzle();
+  }
+
+  function renderPuzzle() {
+    const puzzle = document.getElementById('puzzle');
+    puzzle.innerHTML = '';
+    puzzle.style.gridTemplateColumns = `repeat(${size}, ${tileSize}px)`;
+    puzzle.style.gridTemplateRows = `repeat(${size}, ${tileSize}px)`;
+    document.getElementById("message").textContent = "";
+
+    numbers.forEach((num, index) => {
+      const tile = document.createElement('div');
+      tile.className = 'tile' + (num === null ? ' empty' : '');
+      tile.style.width = tile.style.height = `${tileSize}px`;
+      tile.style.fontSize = tileSize > 60 ? "1.8em" : "1.2em";
+      tile.textContent = num ?? '';
+
+      tile.addEventListener('click', () => {
+        const emptyIndex = numbers.indexOf(null);
+        if (isAdjacent(index, emptyIndex)) {
+          clickSound.currentTime = 0;
+          clickSound.play();
+
+          [numbers[index], numbers[emptyIndex]] = [numbers[emptyIndex], numbers[index]];
+          steps++;
+          document.getElementById("steps").textContent = steps;
+          renderPuzzle();
+          checkWin();
+        }
+      });
+
+      puzzle.appendChild(tile);
+    });
+  }
+
+  function checkWin() {
+    for (let i = 0; i < size * size - 1; i++) {
+      if (numbers[i] !== i + 1) return;
+    }
+    if (numbers[numbers.length - 1] === null) {
+      clearInterval(timerInterval);
+      winSound.play();
+      document.getElementById("message").textContent = "🎉 Selamat! Puzzle selesai!";
+    }
+  }
+
+  function initPuzzle() {
+    size = parseInt(document.getElementById("size").value);
+    numbers = Array.from({ length: size * size - 1 }, (_, i) => i + 1);
+    numbers.push(null);
+    shuffle(numbers);
+    steps = 0;
+    document.getElementById("steps").textContent = steps;
+    startTimer();
+    applyMode();
+  }
+
+  window.onload = initPuzzle;
+</script>
+
+</body>
+</html>
